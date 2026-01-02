@@ -1,164 +1,89 @@
+-- Universal Gun Mod GUI (Recoil, Spread, FireRate)
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-local modifiers = {
-    Damage = 10,
-    FireRate = 1,
-    Range = 50
+-- Table to store your chosen values
+local ModValues = {
+    Recoil = 0,
+    Spread = 0,
+    FireRate = 0
 }
 
-local screenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
-screenGui.Name = "GunModGUI"
+-- Simple GUI creation
+local ScreenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
+local Frame = Instance.new("Frame", ScreenGui)
+Frame.Size = UDim2.new(0, 220, 0, 150)
+Frame.Position = UDim2.new(0.05,0,0.3,0)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.Active = true
+Frame.Draggable = true
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 250)
-frame.Position = UDim2.new(0.3,0,0.3,0)
-frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
-frame.BorderSizePixel = 0
-frame.Parent = screenGui
+local function makeSlider(name, default, yPos)
+    local lbl = Instance.new("TextLabel", Frame)
+    lbl.Text = name..": "..default
+    lbl.Position = UDim2.new(0,10,0, yPos)
+    lbl.Size = UDim2.new(0,200,0,20)
+    lbl.TextColor3 = Color3.fromRGB(255,255,255)
+    lbl.BackgroundTransparency = 1
 
+    local txt = Instance.new("TextBox", Frame)
+    txt.Text = tostring(default)
+    txt.Position = UDim2.new(0,10,0,yPos+20)
+    txt.Size = UDim2.new(0,200,0,25)
+    txt.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    txt.TextColor3 = Color3.fromRGB(255,255,255)
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1,0,0,30)
-title.BackgroundColor3 = Color3.fromRGB(25,25,25)
-title.Text = "Gun Modifiers ▼"
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-title.Parent = frame
-
-local collapsed = false
-title.MouseButton1Click:Connect(function()
-    collapsed = not collapsed
-    modifiersFrame.Visible = not collapsed
-    title.Text = "Gun Modifiers " .. (collapsed and "▲" or "▼")
-end)
-
-local modifiersFrame = Instance.new("Frame")
-modifiersFrame.Position = UDim2.new(0,0,0,30)
-modifiersFrame.Size = UDim2.new(1,0,1, -30)
-modifiersFrame.BackgroundTransparency = 1
-modifiersFrame.Parent = frame
-
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0,5)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = modifiersFrame
-
-local function createModifierInput(name, default)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -10, 0, 40)
-    container.BackgroundTransparency = 0.5
-    container.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    container.Parent = modifiersFrame
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.4,0,1,0)
-    label.Text = name
-    label.TextColor3 = Color3.new(1,1,1)
-    label.BackgroundTransparency = 1
-    label.Font = Enum.Font.SourceSans
-    label.TextSize = 16
-    label.Parent = container
-
-    local input = Instance.new("TextBox")
-    input.Size = UDim2.new(0.55,0,1,0)
-    input.Position = UDim2.new(0.45,0,0,0)
-    input.Text = tostring(default)
-    input.TextColor3 = Color3.new(1,1,1)
-    input.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    input.ClearTextOnFocus = false
-    input.Font = Enum.Font.SourceSans
-    input.TextSize = 16
-    input.Parent = container
-
-    input.FocusLost:Connect(function(enterPressed)
-        local num = tonumber(input.Text)
-        if num then
-            modifiers[name] = num
-            if Player.Character then
-                for _, gun in pairs(Player.Character:GetChildren()) do
-                    if gun:IsA("Tool") then
-                        if gun:FindFirstChild(name) then
-                            gun[name].Value = num
-                        end
-                    end
-                end
-            end
+    txt.FocusLost:Connect(function(enterPressed)
+        local val = tonumber(txt.Text)
+        if val then
+            ModValues[name] = val
+            lbl.Text = name..": "..val
         else
-            input.Text = tostring(modifiers[name])
+            txt.Text = tostring(ModValues[name])
         end
     end)
 end
 
-for name, value in pairs(modifiers) do
-    createModifierInput(name, value)
-end
+makeSlider("Recoil", 0, 10)
+makeSlider("Spread", 0, 60)
+makeSlider("FireRate", 0, 110)
 
-local function applyModifiers(gun)
-    for name, value in pairs(modifiers) do
-        if gun:FindFirstChild(name) and gun[name]:IsA("NumberValue") then
-            gun[name].Value = value
+-- Function to patch guns
+local function PatchGun(gun)
+    if not gun then return end
+    for _, field in pairs({"Recoil","Spread","FireRate"}) do
+        if gun[field] ~= nil then
+            gun[field] = ModValues[field]
         end
     end
 end
 
-local function onGunAdded(gun)
-    if gun:IsA("Tool") then
-        applyModifiers(gun)
-        gun.AncestryChanged:Connect(function(_, parent)
-            if not parent then return end
-            if parent:IsA("Backpack") or parent:IsA("Model") then
-                applyModifiers(gun)
-            end
-        end)
+-- Check all current and future guns
+local function MonitorGuns(container)
+    container.ChildAdded:Connect(function(tool)
+        RunService.Heartbeat:Wait()
+        PatchGun(tool)
+    end)
+    for _, tool in pairs(container:GetChildren()) do
+        PatchGun(tool)
     end
 end
 
-Player.Backpack.ChildAdded:Connect(onGunAdded)
+MonitorGuns(Player.Backpack)
+MonitorGuns(Player.Character or Player.CharacterAdded:Wait())
 Player.CharacterAdded:Connect(function(char)
-    char.ChildAdded:Connect(onGunAdded)
+    MonitorGuns(char)
 end)
 
-for _, gun in pairs(Player.Backpack:GetChildren()) do
-    onGunAdded(gun)
-end
-if Player.Character then
-    for _, gun in pairs(Player.Character:GetChildren()) do
-        onGunAdded(gun)
+-- Continuously apply values in case guns change
+RunService.Heartbeat:Connect(function()
+    for _, tool in pairs(Player.Backpack:GetChildren()) do
+        PatchGun(tool)
     end
-end
-
-local dragging = false
-local dragInput, mousePos, framePos
-
-local function update(input)
-    local delta = input.Position - mousePos
-    frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-end
-
-frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        mousePos = input.Position
-        framePos = frame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if dragging and dragInput then
-        update(dragInput)
+    if Player.Character then
+        for _, tool in pairs(Player.Character:GetChildren()) do
+            PatchGun(tool)
+        end
     end
 end)
