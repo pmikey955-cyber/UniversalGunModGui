@@ -1,22 +1,13 @@
---[[ 
-Universal Gun Mod GUI
-Works with guns in Backpack or Character.
-Modifier changes persist for future guns.
-Draggable + collapsible.
-]]
-
 local Players = game:GetService("Players")
 local Player = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
--- Store modifier values
 local modifiers = {
     Damage = 10,
     FireRate = 1,
     Range = 50
 }
 
--- Create main GUI
 local screenGui = Instance.new("ScreenGui", Player:WaitForChild("PlayerGui"))
 screenGui.Name = "GunModGUI"
 
@@ -27,7 +18,7 @@ frame.BackgroundColor3 = Color3.fromRGB(35,35,35)
 frame.BorderSizePixel = 0
 frame.Parent = screenGui
 
--- Title bar
+
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1,0,0,30)
 title.BackgroundColor3 = Color3.fromRGB(25,25,25)
@@ -37,7 +28,6 @@ title.Font = Enum.Font.SourceSansBold
 title.TextSize = 18
 title.Parent = frame
 
--- Collapse button functionality
 local collapsed = false
 title.MouseButton1Click:Connect(function()
     collapsed = not collapsed
@@ -45,20 +35,17 @@ title.MouseButton1Click:Connect(function()
     title.Text = "Gun Modifiers " .. (collapsed and "▲" or "▼")
 end)
 
--- Modifiers container
 local modifiersFrame = Instance.new("Frame")
 modifiersFrame.Position = UDim2.new(0,0,0,30)
 modifiersFrame.Size = UDim2.new(1,0,1, -30)
 modifiersFrame.BackgroundTransparency = 1
 modifiersFrame.Parent = frame
 
--- Layout for modifier inputs
 local layout = Instance.new("UIListLayout")
 layout.Padding = UDim.new(0,5)
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 layout.Parent = modifiersFrame
 
--- Helper: create a numeric input for a modifier
 local function createModifierInput(name, default)
     local container = Instance.new("Frame")
     container.Size = UDim2.new(1, -10, 0, 40)
@@ -90,7 +77,6 @@ local function createModifierInput(name, default)
         local num = tonumber(input.Text)
         if num then
             modifiers[name] = num
-            -- Apply to currently equipped gun
             if Player.Character then
                 for _, gun in pairs(Player.Character:GetChildren()) do
                     if gun:IsA("Tool") then
@@ -106,12 +92,10 @@ local function createModifierInput(name, default)
     end)
 end
 
--- Create inputs for all modifiers
 for name, value in pairs(modifiers) do
     createModifierInput(name, value)
 end
 
--- Function to apply modifiers to a gun
 local function applyModifiers(gun)
     for name, value in pairs(modifiers) do
         if gun:FindFirstChild(name) and gun[name]:IsA("NumberValue") then
@@ -120,7 +104,6 @@ local function applyModifiers(gun)
     end
 end
 
--- Listen for guns equipped
 local function onGunAdded(gun)
     if gun:IsA("Tool") then
         applyModifiers(gun)
@@ -133,13 +116,11 @@ local function onGunAdded(gun)
     end
 end
 
--- Connect backpack and character
 Player.Backpack.ChildAdded:Connect(onGunAdded)
 Player.CharacterAdded:Connect(function(char)
     char.ChildAdded:Connect(onGunAdded)
 end)
 
--- Apply modifiers to existing guns
 for _, gun in pairs(Player.Backpack:GetChildren()) do
     onGunAdded(gun)
 end
@@ -149,7 +130,6 @@ if Player.Character then
     end
 end
 
--- Make frame draggable
 local dragging = false
 local dragInput, mousePos, framePos
 
